@@ -1,0 +1,10 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.5  # Must be the same as in `pyproject.toml`.
+    hooks:
+      - id: ruff-check  # Linter.
+        # files: '(strava_client|tests)/'
+        args: [ --fix ]
+        types: [file, python]
+      - id: ruff-format  # Formatter.
+        types: [file, python]

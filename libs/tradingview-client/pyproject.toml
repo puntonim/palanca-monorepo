@@ -1,0 +1,67 @@
+[project]
+name = "tradingview-client"
+description = "Palanca Monorepo: TradingView Client"
+authors = [
+    {name = "puntonim", email = "puntonim@gmail.com"}
+]
+readme = "README.md"
+license = "no license"
+version = "1.0.0"
+requires-python = ">=3.10"
+dependencies = [
+    "websocket-client (>=1.9.0,<2.0.0)",
+    "requests (>=2,<3)",
+    "log-utils @ git+https://github.com/puntonim/utils-monorepo#subdirectory=log-utils",
+    "retry-utils @ git+https://github.com/puntonim/utils-monorepo#subdirectory=retry-utils",
+]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "ipdb (>=0.13.13)",
+    # Python linter and formatter.
+    "ruff (==0.14.5)",  # Must be the same as in .pre-commit-config.yaml.
+]
+test = [
+    "pytest (>=9.0.1,<10.0.0)",
+    "pytest-xdist[psutil] (>=3.8.0,<4.0.0)",
+    "vcr-utils @ git+https://github.com/puntonim/utils-monorepo#subdirectory=vcr-utils",
+]
+
+[project.optional-dependencies]
+# Extra (optional) dependencies that users of this project might choose to install or not.
+# Docs: https://python-poetry.org/docs/dependency-specification/#extra-environment-marker
+#
+# `pandas` required by `ReadLatestPriceResponse.raw_dataframe`.
+#  Mind that pandas has some troubles with AWS Lambda, see README.md.
+pandas = ["pandas (>=2.3.1)"]
+
+[tool.ruff]
+line-length = 88  # Default.
+extend-exclude = ["docs"]
+
+[tool.ruff.format]
+quote-style = "double"  # Default.
+
+[tool.ruff.lint]
+select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+]
+ignore = [
+    # E501 Line too long: let the ruff formatter take care long lines.
+    "E501",
+]

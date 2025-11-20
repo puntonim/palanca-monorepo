@@ -7,7 +7,7 @@ Src: https://github.com/rongardF/tvdatafeed/blob/main/tvDatafeed/main.py
 This is the original code as in the original repo, but I removed the pandas
  dependency because it's not really necessary for my use cases and because it causes
  troubles in AWS Lambda (it requires a layer and quite some RAM allocated to the Lambda,
- and thus costly:
+ and thus costly):
  https://aws-sdk-pandas.readthedocs.io/en/stable/layers.html).
 
 Search for "nimiq" to find my edits.

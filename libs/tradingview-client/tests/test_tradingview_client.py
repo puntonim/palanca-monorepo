@@ -138,3 +138,93 @@ class TestTradingViewClientReadLatestPrice:
             )
         assert mocked_method.call_count == 6
         assert True
+
+
+@pytest.mark.skip(
+    reason="It's impossible to stub these with @vcr_utils as it does not"
+    " support multiple invocations in the same test yet"
+)
+class TestTradingViewClientReadLatestPrices:
+    def setup_method(self):
+        self.client = TradingViewClient()
+
+    def test_2_securities(self):
+        responses = list(
+            self.client.read_latest_prices_concurrently(
+                [
+                    dict(
+                        symbol="TSLA",
+                        exchange="NASDAQ",
+                        n_retries_if_response_is_none=5,
+                    ),
+                    dict(
+                        symbol="KO",
+                        exchange="NYSE",
+                        n_retries_if_response_is_none=5,
+                    ),
+                ]
+            )
+        )
+        responses.sort(key=lambda x: x.symbol)
+
+        assert responses[0].symbol == "KO"
+        assert isinstance(responses[0].close_price, float)
+        assert responses[0].close_price > 0
+        assert responses[1].symbol == "TSLA"
+        assert isinstance(responses[1].close_price, float)
+        assert responses[1].close_price > 0
+
+    def test_31_securities(self):
+        SECURITIES = [
+            ("ETHUSD", "KRAKEN"),
+            ("SHRAPUSDT", "KUCOIN"),
+            ("RPLUSDT", "KUCOIN"),
+            ("ORAIUSDT", "KUCOIN"),
+            ("ZCXUSDT", "KUCOIN"),
+            ("XCADUSDT", "KUCOIN"),
+            ("FETUSDT", "KUCOIN"),
+            ("WAXLUSDT", "KUCOIN"),
+            ("ARTYUSDT", "KUCOIN"),
+            ("VRAUSDT", "KUCOIN"),
+            ("AVAXUSD", "KRAKEN"),
+            ("ARBUSD", "KRAKEN"),
+            ("BTCUSD", "KRAKEN"),
+            ("BTCEUR", "KRAKEN"),
+            ("BTCCHF", "KRAKEN"),
+            ("ETHEUR", "KRAKEN"),
+            ("ETHCHF", "KRAKEN"),
+            ("ADAUSD", "KRAKEN"),
+            ("ADABTC", "KRAKEN"),
+            ("XRPUSD", "KRAKEN"),
+            ("XRPBTC", "KRAKEN"),
+            ("TSLA", "NASDAQ"),
+            ("AAPL", "NASDAQ"),
+            ("GOOGL", "NASDAQ"),
+            ("NVDA", "NASDAQ"),
+            ("AMZN", "NASDAQ"),
+            ("KO", "NYSE"),
+            ("F", "NYSE"),
+            ("CVX", "NYSE"),
+            ("TWLO", "NYSE"),
+            ("TSM", "NYSE"),
+        ]
+
+        kwargs_to_read_latest_price = list()
+        for symbol, exchange in SECURITIES:
+            kwargs_to_read_latest_price.append(
+                dict(
+                    symbol=symbol,
+                    exchange=exchange,
+                    n_retries_if_response_is_none=5,
+                )
+            )
+        responses = list(
+            self.client.read_latest_prices_concurrently(kwargs_to_read_latest_price)
+        )
+
+        responses.sort(key=lambda x: x.symbol)
+        SECURITIES.sort(key=lambda x: x[0])
+
+        for i in range(len(responses)):
+            assert responses[i].symbol == SECURITIES[i][0]
+            assert responses[i].close_price > 0

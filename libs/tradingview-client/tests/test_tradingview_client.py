@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 from vcr_utils import vcr_utils
 
-from tradingview_client import TradingViewClient
+from tradingview_client import ReadLatestPriceResponse, TradingViewClient
 from tradingview_client.tradingview_client_exceptions import SymbolAtExchangeUnknown
 
 
@@ -228,3 +228,29 @@ class TestTradingViewClientReadLatestPrices:
         for i in range(len(responses)):
             assert responses[i].symbol == SECURITIES[i][0]
             assert responses[i].close_price > 0
+
+    def test_worker_extra_fn(self):
+        def fn(response: ReadLatestPriceResponse):
+            return f"{response.symbol}={response.close_price}"
+
+        responses = list(
+            self.client.read_latest_prices_concurrently(
+                [
+                    dict(
+                        symbol="TSLA",
+                        exchange="NASDAQ",
+                        n_retries_if_response_is_none=5,
+                    ),
+                    dict(
+                        symbol="KO",
+                        exchange="NYSE",
+                        n_retries_if_response_is_none=5,
+                    ),
+                ],
+                worker_extra_fn=fn,
+            )
+        )
+        responses.sort()
+
+        assert responses[0].startswith("KO=")
+        assert responses[1].startswith("TSLA=")

@@ -43,7 +43,8 @@ So I used max_workers=5 in read_latest_prices_concurrently().
 """
 
 import concurrent.futures
-from collections.abc import Generator
+from collections.abc import Callable, Generator
+from typing import Any
 
 import log_utils as logger
 import retry_utils
@@ -133,10 +134,12 @@ class TradingViewClient:
         return ReadLatestPriceResponse(data, symbol, exchange)
 
     def read_latest_prices_concurrently(
-        self, kwargs_to_read_latest_price: list[dict]
-    ) -> Generator[ReadLatestPriceResponse]:
+        self,
+        kwargs_to_read_latest_price: list[dict],
+        worker_extra_fn: Callable | None = None,
+    ) -> Generator[ReadLatestPriceResponse | Any]:
         """
-        Read the latest prices for all the given symbols.
+        Read the latest prices for all the given symbols, concurrently with threads.
         It takes a list of kwargs, so list[dict], that is passed down to the method
          self.read_latest_price().
 
@@ -146,15 +149,81 @@ class TradingViewClient:
         Args:
             kwargs_to_read_latest_price: list of kwargs passed down to the method
              self.read_latest_price().
+            worker_extra_fn: a function that is called in the worker thread.
+             Its signature should be:
+                def fn(resp: ReadLatestPriceResponse) -> Any
+             It gets the response of self.read_latest_price() and its return value
+              is yielded by this method.
 
-        Returns: yields ReadLatestPriceResponse returned by self.read_latest_price().
+        Returns: yields ReadLatestPriceResponse returned by self.read_latest_price() or
+         the return value of worker_extra_fn, if given.
+
+        Basic example:
+            responses = list(
+                self.client.read_latest_prices_concurrently(
+                    [
+                        dict(
+                            symbol="TSLA",
+                            exchange="NASDAQ",
+                            n_retries_if_response_is_none=5,
+                        ),
+                        dict(
+                            symbol="KO",
+                            exchange="NYSE",
+                            n_retries_if_response_is_none=5,
+                        ),
+                    ]
+                )
+            )
+            responses.sort(key=lambda x: x.symbol)
+
+            assert responses[0].symbol == "KO"
+            assert isinstance(responses[0].close_price, float)
+            assert responses[1].symbol == "TSLA"
+            assert isinstance(responses[1].close_price, float)
+
+        Example with worker_extra_fn:
+            def fn(response: ReadLatestPriceResponse):
+                return f"{response.symbol}={response.close_price}"
+
+            responses = list(
+                self.client.read_latest_prices_concurrently(
+                    [
+                        dict(
+                            symbol="TSLA",
+                            exchange="NASDAQ",
+                            n_retries_if_response_is_none=5,
+                        ),
+                        dict(
+                            symbol="KO",
+                            exchange="NYSE",
+                            n_retries_if_response_is_none=5,
+                        ),
+                    ],
+                    worker_extra_fn=fn,
+                )
+            )
+            responses.sort()
+
+            assert responses[0].startswith("KO=")
+            assert responses[1].startswith("TSLA=")
         """
+        if worker_extra_fn and not callable(worker_extra_fn):
+            raise TypeError("worker_extra_fn must be a callable")
+
+        def _worker(**_kwargs):
+            response: ReadLatestPriceResponse = self.read_latest_price(**_kwargs)
+            if worker_extra_fn:
+                return worker_extra_fn(response)
+            return response
+
         # The optimal value max_workers=5 was found with the tests in
-        #  tests/test_rate_limit_threshold.py.
+        #  tests/test_rate_limit_threshold.py. More than 5 concurrent threads and it
+        #  will hit the rate-limits getting a 429 Too Many Requests.
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             futures = list()
             for kwargs in kwargs_to_read_latest_price:
-                futures.append(executor.submit(self.read_latest_price, **kwargs))
+                futures.append(executor.submit(_worker, **kwargs))
 
             for future in concurrent.futures.as_completed(futures):
                 if future.exception() is not None:
